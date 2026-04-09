@@ -27,7 +27,7 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 # Refresh intervals
 STREAM_REFRESH_INTERVAL = 10800
-CHAT_CHECK_INTERVAL = 10
+CHAT_CHECK_INTERVAL = 15
 
 # ============================
 # 🔁 API KEY HANDLER
