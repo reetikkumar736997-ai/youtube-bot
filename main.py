@@ -5,10 +5,10 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # ============================
-# 🔧 MANUAL SETTINGS
+# 🔧 SETTINGS (SAFE)
 # ============================
 
-# 🔐 API keys Railway variables se aayengi
+# 🔐 API keys (Railway / GitHub secrets se aayengi)
 YOUTUBE_API_KEYS = [
     os.getenv("YOUTUBE_API_KEY_1"),
     os.getenv("YOUTUBE_API_KEY_2"),
@@ -21,11 +21,11 @@ YOUTUBE_API_KEYS = [
 # Channel URL
 CHANNEL_URL = "https://www.youtube.com/channel/UCIAOlizjAwsPdwF2RIbyk1g"
 
-# 🔐 Telegram details Railway se
+# 🔐 Telegram secrets (env variables se)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Refresh intervals
+# Intervals
 STREAM_REFRESH_INTERVAL = 10800
 CHAT_CHECK_INTERVAL = 15
 
@@ -41,7 +41,7 @@ def get_current_api_key():
 def switch_to_next_key():
     global current_key_index
     current_key_index = (current_key_index + 1) % len(YOUTUBE_API_KEYS)
-    print(f"🔁 API key switched (#{current_key_index + 1})")
+    print(f"🔁 Switched to API key #{current_key_index + 1}")
 
 # ============================
 # 📤 TELEGRAM
@@ -109,7 +109,7 @@ def get_all_upcoming_streams():
                 time.sleep(10)
 
 # ============================
-# 🛰 MONITOR STREAM
+# 🛰 MONITOR
 # ============================
 
 def monitor_single_stream():
@@ -124,7 +124,7 @@ def monitor_single_stream():
             break
 
     if not selected_stream:
-        print("❌ Target stream nahi mila, retry...")
+        print("❌ Stream nahi mila")
         time.sleep(60)
         return
 
@@ -132,14 +132,9 @@ def monitor_single_stream():
 
     youtube = build('youtube', 'v3', developerKey=get_current_api_key())
     page_token = None
-    last_refresh = time.time()
 
     while True:
         try:
-            if time.time() - last_refresh > STREAM_REFRESH_INTERVAL:
-                print("🔄 Refreshing stream...")
-                return
-
             response = youtube.liveChatMessages().list(
                 liveChatId=selected_stream['chat_id'],
                 part='snippet,authorDetails',
@@ -150,7 +145,7 @@ def monitor_single_stream():
                 author = item['authorDetails']['displayName']
                 message = item['snippet']['displayMessage']
 
-                print(f"📩 {author}: {message}")
+                print(f"{author}: {message}")
                 send_telegram_notification(selected_stream['title'], author, message)
 
             page_token = response.get('nextPageToken')
@@ -162,20 +157,12 @@ def monitor_single_stream():
             else:
                 print(e)
 
-        except Exception as e:
-            print(f"⚠ Error: {e}")
-
         time.sleep(CHAT_CHECK_INTERVAL)
 
 # ============================
-# 🚀 MAIN LOOP
+# 🚀 MAIN
 # ============================
 
 if __name__ == "__main__":
     while True:
-        try:
-            print("🚀 Bot start ho gaya...")
-            monitor_single_stream()
-        except Exception as e:
-            print(f"❌ Crash: {e}")
-            time.sleep(10)
+        monitor_single_stream()
