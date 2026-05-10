@@ -21,7 +21,7 @@ def run_flask():
     app.run(host="0.0.0.0", port=port)
 
 # ============================
-# 🔧 SETTINGS (SAFE)
+# 🔧 SETTINGS
 # ============================
 
 YOUTUBE_API_KEYS = [
@@ -53,7 +53,7 @@ def get_current_api_key():
 def switch_to_next_key():
     global current_key_index
     current_key_index = (current_key_index + 1) % len(YOUTUBE_API_KEYS)
-    print(f"🔁 Switched to API key #{current_key_index + 1}")
+    print(f"🔁 Switched to API key #{current_key_index + 1}", flush=True)
 
 # ============================
 # 📤 TELEGRAM
@@ -70,7 +70,7 @@ def send_telegram_notification(stream_title, author, message):
             "text": text
         })
     except Exception as e:
-        print(f"Telegram Error: {e}")
+        print(f"Telegram Error: {e}", flush=True)
 
 # ============================
 # 📺 FETCH STREAMS
@@ -121,10 +121,10 @@ def get_all_upcoming_streams():
 
         except HttpError as e:
             if "quotaExceeded" in str(e):
-                print("⚠ Quota exceeded, switching key...")
+                print("⚠ Quota exceeded, switching key...", flush=True)
                 switch_to_next_key()
             else:
-                print(e)
+                print(e, flush=True)
                 time.sleep(10)
 
 # ============================
@@ -132,7 +132,7 @@ def get_all_upcoming_streams():
 # ============================
 
 def monitor_single_stream():
-    print("🔍 Streams fetch ho rahe hain...")
+    print("🔍 Streams fetch ho rahe hain...", flush=True)
 
     streams = get_all_upcoming_streams()
 
@@ -144,11 +144,11 @@ def monitor_single_stream():
             break
 
     if not selected_stream:
-        print("❌ Stream nahi mila")
+        print("❌ Stream nahi mila", flush=True)
         time.sleep(60)
         return
 
-    print(f"✅ Monitoring: {selected_stream['title']}")
+    print(f"✅ Monitoring: {selected_stream['title']}", flush=True)
 
     youtube = build(
         'youtube',
@@ -157,6 +157,9 @@ def monitor_single_stream():
     )
 
     page_token = None
+
+    # 🔥 duplicate messages stop
+    processed_messages = set()
 
     while True:
         try:
@@ -167,10 +170,19 @@ def monitor_single_stream():
             ).execute()
 
             for item in response.get('items', []):
+
+                message_id = item['id']
+
+                # agar pehle aa chuka hai to skip
+                if message_id in processed_messages:
+                    continue
+
+                processed_messages.add(message_id)
+
                 author = item['authorDetails']['displayName']
                 message = item['snippet']['displayMessage']
 
-                print(f"{author}: {message}")
+                print(f"{author}: {message}", flush=True)
 
                 send_telegram_notification(
                     selected_stream['title'],
@@ -190,7 +202,7 @@ def monitor_single_stream():
                     developerKey=get_current_api_key()
                 )
             else:
-                print(e)
+                print(e, flush=True)
 
         time.sleep(CHAT_CHECK_INTERVAL)
 
@@ -200,11 +212,9 @@ def monitor_single_stream():
 
 if __name__ == "__main__":
 
-    # Flask server alag thread me run karega
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
 
-    # Bot start
     while True:
         monitor_single_stream()
