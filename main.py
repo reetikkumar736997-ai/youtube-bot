@@ -1,14 +1,29 @@
 import time
 import requests
 import os
+import threading
+from flask import Flask
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+
+# ============================
+# 🌐 DUMMY WEB SERVER FOR RENDER
+# ============================
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "YouTube Bot Running ✅"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
 
 # ============================
 # 🔧 SETTINGS (SAFE)
 # ============================
 
-# 🔐 API keys (Railway / GitHub secrets se aayengi)
 YOUTUBE_API_KEYS = [
     os.getenv("YOUTUBE_API_KEY_1"),
     os.getenv("YOUTUBE_API_KEY_2"),
@@ -18,14 +33,11 @@ YOUTUBE_API_KEYS = [
     os.getenv("YOUTUBE_API_KEY_6"),
 ]
 
-# Channel URL
 CHANNEL_URL = "https://www.youtube.com/channel/UCIAOlizjAwsPdwF2RIbyk1g"
 
-# 🔐 Telegram secrets (env variables se)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Intervals
 STREAM_REFRESH_INTERVAL = 10800
 CHAT_CHECK_INTERVAL = 15
 
@@ -67,7 +79,12 @@ def send_telegram_notification(stream_title, author, message):
 def get_all_upcoming_streams():
     while True:
         try:
-            youtube = build('youtube', 'v3', developerKey=get_current_api_key())
+            youtube = build(
+                'youtube',
+                'v3',
+                developerKey=get_current_api_key()
+            )
+
             channel_id = CHANNEL_URL.split('/')[-1]
 
             search = youtube.search().list(
@@ -90,7 +107,9 @@ def get_all_upcoming_streams():
 
                 if video['items']:
                     info = video['items'][0]
-                    chat_id = info.get('liveStreamingDetails', {}).get('activeLiveChatId')
+                    chat_id = info.get(
+                        'liveStreamingDetails', {}
+                    ).get('activeLiveChatId')
 
                     if chat_id:
                         streams.append({
@@ -118,6 +137,7 @@ def monitor_single_stream():
     streams = get_all_upcoming_streams()
 
     selected_stream = None
+
     for s in streams:
         if "0066" in s["title"]:
             selected_stream = s
@@ -130,7 +150,12 @@ def monitor_single_stream():
 
     print(f"✅ Monitoring: {selected_stream['title']}")
 
-    youtube = build('youtube', 'v3', developerKey=get_current_api_key())
+    youtube = build(
+        'youtube',
+        'v3',
+        developerKey=get_current_api_key()
+    )
+
     page_token = None
 
     while True:
@@ -146,14 +171,24 @@ def monitor_single_stream():
                 message = item['snippet']['displayMessage']
 
                 print(f"{author}: {message}")
-                send_telegram_notification(selected_stream['title'], author, message)
+
+                send_telegram_notification(
+                    selected_stream['title'],
+                    author,
+                    message
+                )
 
             page_token = response.get('nextPageToken')
 
         except HttpError as e:
             if "quotaExceeded" in str(e):
                 switch_to_next_key()
-                youtube = build('youtube', 'v3', developerKey=get_current_api_key())
+
+                youtube = build(
+                    'youtube',
+                    'v3',
+                    developerKey=get_current_api_key()
+                )
             else:
                 print(e)
 
@@ -164,5 +199,12 @@ def monitor_single_stream():
 # ============================
 
 if __name__ == "__main__":
+
+    # Flask server alag thread me run karega
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+
+    # Bot start
     while True:
         monitor_single_stream()
